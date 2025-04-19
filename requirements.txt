@@ -8,7 +8,7 @@ pandas
 scikit-learn
 scipy
 imblearn
-mpl_toolkits
+ucimlrepo
 statsmodels
 joblib
 
