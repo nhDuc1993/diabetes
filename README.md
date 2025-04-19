@@ -28,8 +28,10 @@ Before running the application, you need to install the required Python packages
 ## How to Use
 ### 1. Clone the Repository
 
+```bash
 git clone https://github.com/nhduc1993/diabetes.git
 cd diabetes
+```
 
 ### 2. Install Dependencies
 
