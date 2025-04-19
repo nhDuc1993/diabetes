@@ -1,0 +1,27 @@
+# Web Framework
+Flask
+Flask-Cors
+
+# Core Data Science
+numpy
+pandas
+scikit-learn
+scipy
+imblearn
+mpl_toolkits
+statsmodels
+joblib
+
+# Visualization
+matplotlib
+seaborn
+plotly
+
+# Data Handling / APIs
+requests
+
+# Data
+ucimlrepo
+
+# Utils
+os

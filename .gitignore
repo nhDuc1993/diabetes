@@ -1,0 +1,26 @@
+# Python
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+
+# Virtual Environment
+venv/
+.env/
+*.csv
+
+# IDEs and Editors
+.idea/
+.vscode/
+
+# Flask
+instance/
+*.db
+*.sqlite3
+
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# Model:
+*.pkl

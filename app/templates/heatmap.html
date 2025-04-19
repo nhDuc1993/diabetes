@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Diabetes Resilient Dashboard</title>
+  <script src="{{ url_for('static', filename='lib/d3/d3.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='lib/d3-dsv/d3-dsv.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='lib/d3-fetch/d3-fetch.min.js') }}"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      display: flex;
+      height: 100vh;
+    }
+
+    .sidebar {
+      background-color: #2c3e50;
+      width: 200px;
+      color: white;
+      padding: 1rem;
+    }
+
+    .sidebar button {
+      display: block;
+      margin: 10px 0;
+      width: 100%;
+      background: #34495e;
+      border: none;
+      color: white;
+      padding: 10px;
+      cursor: pointer;
+    }
+
+    .main {
+      flex: 1;
+      padding: 2rem;
+      background-color: #f5f6fa;
+      overflow-y: auto;
+    }
+
+    .filters {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 2rem;
+    }
+
+    .filters select {
+      padding: 0.5rem;
+      border-radius: 5px;
+    }
+
+    .kpis {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 2rem;
+    }
+
+    .kpi {
+      background: white;
+      padding: 1rem;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      min-width: 140px;
+      flex: 1;
+    }
+
+    .chart-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2rem;
+    }
+
+    .chart-container {
+      background: white;
+      padding: 1rem;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      flex: 1;
+      min-width: 400px;
+    }
+
+    #heatmap {
+      width: 100%;
+      height: 300px;
+    }
+  </style>
+
+</head>
+
+<body>
+  <div class="sidebar">
+    <h1 style="font-size:16px;">Diabetes-Resilient Individuals Dashboard</h1>
+
+
+    <button onclick="window.location.href='/'">Summary</button>
+    <button><b>Correlation Heatmap</b></button>
+    <button onclick="window.location.href='/predict'">Prediction</button>
+  </div>
+  <div class="main" >
+    <h1>Correlation Heatmap</h1>
+    <h5 style="font-weight: normal; font-style: italic;"> This page visualizes the correlation between health-related variables among diabetes-resilient individuals through a heatmap, helping identify strong positive or negative relationships across metrics.</h5>
+    <div id="heatmap-container" style="display: flex; justify-content: center;">
+      <div id="heatmap" class="border rounded bg-white p-3 shadow-sm"  style="display: flex; justify-content: center;"></div>
+    </div>
+    
+
+  </div>
+
+  <script>
+  fetch('/api/correlation')
+    .then(res => res.json())
+    .then(data => {
+      const margin = { top: 100, right: 50, bottom: 50, left: 200 },
+            width = 1200 - margin.left - margin.right,
+            height = 1100 - margin.top - margin.bottom;
+
+      const svg = d3.select("#heatmap")
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+
+      const variables = Array.from(new Set(data.map(d => d.x)));
+
+      const x = d3.scaleBand()
+        .range([0, width])
+        .domain(variables)
+        .padding(0.05);
+
+      const y = d3.scaleBand()
+        .range([0, height])
+        .domain(variables)
+        .padding(0.05);
+
+      svg.append("g")
+        .attr("transform", `translate(0,0)`)
+        .call(d3.axisTop(x))
+        .selectAll("text")
+        .style("text-anchor", "start")
+        .attr("transform", "rotate(-90)")
+        .attr("dx", "1.0em")
+        .attr("dy", "1.2em");
+
+      svg.append("g")
+        .attr("transform", `translate(0,0)`)
+        .call(d3.axisLeft(y))
+        .selectAll("text")
+        .style("text-anchor", "end")
+        .attr("dx", "0em")
+        .attr("dy", "0em");
+
+      const color = d3.scaleSequential()
+        .interpolator(d3.interpolateRdBu)
+        .domain([-1, 1]);
+
+      svg.selectAll()
+        .data(data)
+        .join("rect")
+        .attr("x", d => x(d.x))
+        .attr("y", d => y(d.y))
+        .attr("width", x.bandwidth())
+        .attr("height", y.bandwidth())
+        .style("fill", d => color(d.value))
+        .append("title")
+        .text(d => `Corr(${d.x}, ${d.y}) = ${d.value}`);
+
+      svg.selectAll()
+        .data(data)
+        .join("text")
+        .attr("x", d => x(d.x) + x.bandwidth() / 2)
+        .attr("y", d => y(d.y) + y.bandwidth() / 2)
+        .attr("text-anchor", "middle")
+        .attr("alignment-baseline", "middle")
+        .style("fill", d => Math.abs(d.value) > 0.5 ? "white" : "black")
+        .text(d => d.value.toFixed(2));
+
+const legend = svg
+  .append('g')
+  .attr('class', 'legend')
+  .attr('transform', `translate(${width + 10}, 0)`); // Position the legend to the right of the heatmap
+
+const colorScale = d3.scaleSequential(d3.interpolateRdBu).domain([-1, 1]);
+
+const gradient = legend
+  .append('defs')
+  .append('linearGradient')
+  .attr('id', 'gradient')
+  .attr('x1', '0%')
+  .attr('x2', '0%')
+  .attr('y1', '0%')
+  .attr('y2', '100%');
+
+gradient
+  .append('stop')
+  .attr('offset', '0%')
+  .attr('stop-color', colorScale(1));
+gradient
+  .append('stop')
+  .attr('offset', '50%')
+  .attr('stop-color', "#ffffff"); 
+gradient
+  .append('stop')
+  .attr('offset', '100%')
+  .attr('stop-color', colorScale(-1));
+
+legend
+  .append('rect')
+  .attr('x', 0)
+  .attr('y', 0)
+  .attr('width', 20)
+  .attr('height', height / 2)  
+  .style('fill', 'url(#gradient)');
+
+
+const legendLabels = [-1, 0, 1];
+
+legendLabels.forEach((value, index) => {
+  legend
+    .append('text')
+    .attr('x', 25)
+    .attr('y', (height / 2) * (1 - (value + 1) / 2))  
+    .attr('dy', '.35em')
+    .text(value)
+    .style('font-size', '12px')
+    .style('text-anchor', 'start');
+
+  });
+    
+});
+
+
+  
+  
+  </script>
+</body>
+</html>

@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Diabetes Resilient Dashboard</title>
+  <script src="{{ url_for('static', filename='lib/d3/d3.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='lib/d3-dsv/d3-dsv.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='lib/d3-fetch/d3-fetch.min.js') }}"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      display: flex;
+      height: 100vh;
+    }
+
+    .sidebar {
+      background-color: #2c3e50;
+      width: 200px;
+      color: white;
+      padding: 1rem;
+    }
+
+    .sidebar button {
+      display: block;
+      margin: 10px 0;
+      width: 100%;
+      background: #34495e;
+      border: none;
+      color: white;
+      padding: 10px;
+      cursor: pointer;
+    }
+
+    .main {
+      flex: 1;
+      padding: 2rem;
+      background-color: #f5f6fa;
+      overflow-y: auto;
+    }
+
+    .filters {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 2rem;
+    }
+
+    .filters select {
+      padding: 0.5rem;
+      border-radius: 5px;
+    }
+
+    .kpis {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 2rem;
+    }
+
+    .kpi {
+      background: white;
+      padding: 1rem;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      min-width: 140px;
+      flex: 1;
+    }
+    .tooltip-icon {
+      position: relative;
+      top: 0px;
+      right: 0px;
+      cursor: help;
+      font-size: 14px;
+      color: #888;
+    }
+    
+    .chart-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2rem;
+    }
+
+    .chart-container {
+      background: white;
+      padding: 1rem;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      flex: 1;
+      min-width: 400px;
+    }
+
+    svg {
+      width: 100%;
+      height: 300px;
+    }
+  </style>
+
+</head>
+
+<body>
+  <div class="sidebar">
+    <h1 style="font-size:16px;">Diabetes-Resilient Individuals Dashboard</h1>
+    <button><b>Summary</b></button>
+    <button onclick="window.location.href='/heatmap'">Correlation Heatmap</button>
+    <button onclick="window.location.href='/predict'">Prediction</button>
+  </div>
+
+  <div class="main">
+    <h1>Summary</h1>
+    <h5 style="font-weight: normal; font-style: italic;">This dashboard provides an interactive summary of diabetes-resilient individuals, featuring filters by demographic attributes.</h5>
+    <div class="filters">
+      <label>Sex:
+        <select id="filter-sex">
+          <option value="all">All</option>
+          <option value="1">Male</option>
+          <option value="0">Female</option>
+        </select>
+      </label>
+
+      <label>Age Group:
+        <select id="filter-age">
+          <option value="all">All</option>
+          <option value="1">1 </option>
+          <option value="2">2</option>
+          <option value="3">3 </option>
+          <option value="4">4</option>
+          <option value="5">5 </option>
+          <option value="6">6 </option>
+          <option value="7">7</option>
+          <option value="8">8 </option>
+          <option value="9">9</option>
+          <option value="10">10 </option>
+          <option value="11">11 </option>
+          <option value="12">12</option>
+          <option value="13">13 </option>
+        </select>
+      </label>
+
+      <label>Education:
+        <select id="filter-education">
+          <option value="all">All</option>
+          <option value="1">1 </option>
+          <option value="2">2</option>
+          <option value="3">3 </option>
+          <option value="4">4</option>
+          <option value="5">5 </option>
+          <option value="6">6 </option>
+        </select>
+      </label>
+
+      <label>Income:
+        <select id="filter-income">
+          <option value="all">All</option>
+          <option value="1">1 </option>
+          <option value="2">2</option>
+          <option value="3">3 </option>
+          <option value="4">4</option>
+          <option value="5">5 </option>
+          <option value="6">6 </option>
+          <option value="7">7</option>
+          <option value="8">8 </option>
+        </select>
+      </label>
+
+    </div>
+
+    <div class="kpis">
+      <div class="kpi" title="Total number of records"><strong>Record count</strong><br><span id="kpi-count">...</span></div>
+      <div class="kpi" title="Adults who have been told they have high blood pressure by a doctor, nurse, or other health professional"><strong>High Blood Pressure</strong><br><span id="kpi-highbp">...</span></div>
+      <div class="kpi" title="Have you EVER been told by a doctor, nurse or other health professional that your blood cholesterol is high?"><strong>High Cholesterol</strong><br><span id="kpi-highchol">...</span></div>
+      <div class="kpi" title="Cholesterol check within past five years"><strong>Cholesterol Check</strong><br><span id="kpi-cholcheck">...</span></div>
+      <div class="kpi" title="Have you smoked at least 100 cigarettes in your entire life?"><strong>Smoker</strong><br><span id="kpi-smoker">...</span></div>
+      <div class="kpi" title="(Ever told) you had a stroke."><strong>Stroke</strong><br><span id="kpi-stroke">...</span></div>
+      <div class="kpi" title="Respondents that have ever reported having coronary heart disease (CHD) or myocardial infarction (MI)"><strong>Heart Disease</strong><br><span id="kpi-heartdisease">...</span></div>
+      <div class="kpi" title="Adults who reported doing physical activity or exercise during the past 30 days other than their regular job"><strong>Physical Activity</strong><br><span id="kpi-physactivity">...</span></div>
+      <div class="kpi" title="Consume Fruit 1 or more times per day"><strong>Fruits</strong><br><span id="kpi-fruits">...</span></div>
+      <div class="kpi" title="Consume Vegetables 1 or more times per day"><strong>Veggies</strong><br><span id="kpi-veggies">...</span></div>
+      <div class="kpi" title="Heavy drinkers (adult men having more than 14 drinks per week and adult women having more than 7 drinks per week)"><strong>Heavy Alcohol Consumption</strong><br><span id="kpi-alcohol">...</span></div>
+      <div class="kpi" title="Do you have any kind of health care coverage, including health insurance, prepaid plans such as HMOs, or government plans such as Medicare, or Indian Health Service?"><strong>Healthcare Coverage</strong><br><span id="kpi-healthcare">...</span></div>
+      <div class="kpi" title="Was there a time in the past 12 months when you needed to see a doctor but could not because of cost?"><strong>No Doc Appointment Because of Cost</strong><br><span id="kpi-nodocbccost">...</span></div>
+      <div class="kpi" title="Do you have serious difficulty walking or climbing stairs?"><strong>Walking Difficulty</strong><br><span id="kpi-diffwalk">...</span></div>
+    </div>
+
+    <div class="chart-row">
+      <div class="chart-container">
+        <h3>Feature Correlation</h3>
+        <label>X Axis: </label>
+          <select id="x-axis-select">
+            <option value="Age">Age</option>
+            <option value="BMI">BMI</option>
+            <option value="GenHlth">GenHlth</option>
+            <option value="MentHlth">MentHlth</option>
+            <option value="PhysHlth">PhysHlth</option>
+          </select>
+        
+        
+        <label>Y Axis: </label>
+          <select id="y-axis-select">
+            <option value="Age">Age</option>
+            <option value="BMI" selected>BMI</option>
+            <option value="GenHlth">GenHlth</option>
+            <option value="MentHlth">MentHlth</option>
+            <option value="PhysHlth">PhysHlth</option>
+          </select>
+        <svg id="scatter"></svg>
+      </div>
+
+      <div class="chart-container">
+        <h3>Diabetes Resilient</h3>
+        <svg id="pie"></svg>
+      </div>
+    </div>
+
+    <div class="chart-container" style="margin-top: 2rem;">
+      <h3>BMI Distribution</h3>
+      <svg id="distribution"></svg>
+    </div>
+
+  </div>
+
+  <script>
+    async function loadKPIs() {
+      const params = new URLSearchParams({
+        sex: document.getElementById("filter-sex").value,
+        age: document.getElementById("filter-age").value,
+        education: document.getElementById("filter-education").value,
+        income: document.getElementById("filter-income").value,
+      });
+
+      const res = await fetch(`/api/kpis?${params.toString()}`);
+      const kpi = await res.json();
+
+      const res_bar = await fetch(`/api/bmi-distribution?${params.toString()}`);
+      const bar_chart = await res_bar.json();
+
+      const scatter_plot_data = await fetch(`/api/scatter?${params.toString()}`);
+      const scatter_plot = await scatter_plot_data.json();
+
+      const resilient = scatter_plot.resilient || [];
+      const nonResilient = scatter_plot.non_resilient || [];
+
+      const xSelect = document.getElementById("x-axis-select");
+      const ySelect = document.getElementById("y-axis-select");
+
+      function updateScatter() {
+        const xFeature = xSelect.value;
+        const yFeature = ySelect.value;
+        renderScatterPlot(resilient, nonResilient, xFeature, yFeature);
+      }
+
+      xSelect.addEventListener("change", updateScatter);
+      ySelect.addEventListener("change", updateScatter);
+
+      updateScatter(); 
+
+      d3.select("#kpi-count").text(kpi.count);
+      d3.select("#kpi-highbp").text(kpi.HighBP + "%");
+      d3.select("#kpi-highchol").text(kpi.HighChol + "%");
+      d3.select("#kpi-cholcheck").text(kpi.CholCheck + "%");
+      d3.select("#kpi-smoker").text(kpi.Smoker + "%");
+      d3.select("#kpi-stroke").text(kpi.Stroke + "%");
+      d3.select("#kpi-heartdisease").text(kpi.HeartDisease + "%");
+      d3.select("#kpi-physactivity").text(kpi.PhysActivity + "%");
+      d3.select("#kpi-fruits").text(kpi.Fruits + "%");
+      d3.select("#kpi-veggies").text(kpi.Veggies + "%");
+      d3.select("#kpi-alcohol").text(kpi.HvyAlcohol + "%");
+      d3.select("#kpi-healthcare").text(kpi.AnyHealthcare + "%");
+      d3.select("#kpi-nodocbccost").text(kpi.NoDocbcCost + "%");
+      d3.select("#kpi-diffwalk").text(kpi.DiffWalk + "%");
+
+
+      updatePieChart(kpi.Resilient);
+      renderBMILineChart(bar_chart);
+
+    }
+
+    loadKPIs();
+
+    d3.selectAll(".filters select").on("change", loadKPIs);
+
+    // Pie Chart
+    function updatePieChart(resilientPercent) {
+    const pieSvg = d3.select("#pie");
+    const width = pieSvg.node().getBoundingClientRect().width;
+    const height = 300;
+    const radius = Math.min(width, height) / 2;
+
+    pieSvg.selectAll("*").remove();
+
+    const pieGroup = pieSvg
+      .append("g")
+      .attr("transform", `translate(${width / 2 + 30}, ${height / 2})`);
+
+    const pie = d3.pie().value(d => d.value);
+    const arc = d3.arc().innerRadius(0).outerRadius(radius);
+    const labelArc = d3.arc().innerRadius(radius * 0.5).outerRadius(radius * 0.9);
+
+    const data = [
+      { label: "Diabetes", value: resilientPercent, color: "#27ae60" },
+      { label: "No Diabetes", value: +(100 - resilientPercent).toFixed(2), color: "#34495e" }
+    ];
+
+    const pieData = pie(data);
+
+    pieGroup
+      .selectAll("path")
+      .data(pieData)
+      .join("path")
+      .attr("d", arc)
+      .attr("fill", d => d.data.color)
+      .append("title")
+      .text(d => `${d.data.label}: ${d.data.value}%`);
+
+    pieGroup
+      .selectAll("text")
+      .data(pieData)
+      .join("text")
+      .attr("transform", d => `translate(${labelArc.centroid(d)})`)
+      .attr("text-anchor", "middle")
+      .attr("alignment-baseline", "middle")
+      .attr("fill", "white")
+      .style("font-size", "14px")
+      .style("font-weight", "bold")
+      .text(d => `${d.data.value}%`);
+
+    const legendGroup = pieSvg
+      .append("g")
+      .attr("transform", `translate(${width - 120}, 20)`);
+
+    const legendItem = legendGroup
+      .selectAll(".legend")
+      .data(data)
+      .join("g")
+      .attr("class", "legend")
+      .attr("transform", (_, i) => `translate(0, ${i * 25})`);
+
+    legendItem
+      .append("rect")
+      .attr("x", 0)
+      .attr("width", 18)
+      .attr("height", 18)
+      .attr("fill", d => d.color);
+
+    legendItem
+      .append("text")
+      .attr("x", 25)
+      .attr("y", 13)
+      .text(d => d.label)
+      .style("font-size", "13px");
+  }
+
+function renderBMILineChart(data) {
+  d3.select("#distribution").selectAll("*").remove();
+
+const svg = d3.select("#distribution")
+  .append("svg")
+  .attr("width", 1200)
+  .attr("height", 300);
+
+const margin = { top: 30, right: 30, bottom: 40, left: 50 };
+const width = 1200 - margin.left - margin.right;
+const height = 300 - margin.top - margin.bottom;
+
+const chart = svg
+    .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+    .attr("transform", `translate(${margin.left},${margin.top})`);
+
+  const thresholds = d3.range(0, 101, 10);
+  const histogram = d3.histogram().domain([0, 100]).thresholds(thresholds);
+
+  const resilientBins = histogram(data.bmi_resilient);
+  const nonResilientBins = histogram(data.bmi_nonresilient);
+
+  const x = d3.scaleLinear()
+    .domain([0, 100])
+    .range([0, width]);
+
+  const maxCount = d3.max([
+    d3.max(resilientBins, d => d.length),
+    d3.max(nonResilientBins, d => d.length)
+  ]);
+
+  const y = d3.scaleLinear()
+    .domain([0, maxCount])
+    .range([height, 0]);
+
+  const xAxis = d3.axisBottom(x)
+    .tickValues(thresholds.slice(0, -1))
+    .tickFormat(d => `${d}`);
+
+  chart.append("g")
+    .attr("transform", `translate(0,${height})`)
+    .call(xAxis);
+
+  chart.append("g")
+    .call(d3.axisLeft(y));
+
+  const barWidth = x(thresholds[1]) - x(thresholds[0]) - 2;
+
+  chart.selectAll(".bar-nonres")
+    .data(nonResilientBins)
+    .join("rect")
+    .attr("class", "bar-nonres")
+    .attr("x", d => x(d.x0) + 1)
+    .attr("y", d => y(d.length))
+    .attr("width", barWidth)
+    .attr("height", d => height - y(d.length))
+    .attr("fill", "#34495e");
+
+  chart.selectAll(".bar-resilient")
+    .data(resilientBins)
+    .join("rect")
+    .attr("class", "bar-resilient")
+    .attr("x", d => x(d.x0) + 4)
+    .attr("y", d => y(d.length))
+    .attr("width", barWidth - 6)
+    .attr("height", d => height - y(d.length))
+    .attr("fill", "#27ae60");
+
+  const legend = chart.append("g")
+    .attr("transform", `translate(${width - 120}, 0)`);
+
+  legend.append("rect")
+    .attr("x", 0)
+    .attr("y", 0)
+    .attr("width", 12)
+    .attr("height", 12)
+    .attr("fill", "#27ae60");
+
+  legend.append("text")
+    .attr("x", 18)
+    .attr("y", 10)
+    .text("Diabetes");
+
+  legend.append("rect")
+    .attr("x", 0)
+    .attr("y", 20)
+    .attr("width", 12)
+    .attr("height", 12)
+    .attr("fill", "#34495e");
+
+  legend.append("text")
+    .attr("x", 18)
+    .attr("y", 30)
+    .text("No Diabetes");
+}
+
+function renderScatterPlot(resilientData, nonResilientData, xFeature, yFeature) {
+  const svg = d3.select("#scatter");
+  svg.selectAll("*").remove();
+
+  const bbox = svg.node().getBoundingClientRect();
+
+  const margin = { top: 20, right: 150, bottom: 50, left: 60 },
+        width = bbox.width - margin.left - margin.right,
+        height = 300 - margin.top - margin.bottom;
+
+  const chart = svg.append("g")
+    .attr("transform", `translate(${margin.left},${margin.top})`);
+
+  const combinedData = [
+    ...resilientData.map(d => ({ ...d, group: "Resilient" })),
+    ...nonResilientData.map(d => ({ ...d, group: "Non-Resilient" }))
+  ];
+
+  const x = d3.scaleLinear()
+    .domain(d3.extent(combinedData, d => +d[xFeature]))
+    .nice()
+    .range([0, width]);
+
+  const y = d3.scaleLinear()
+    .domain(d3.extent(combinedData, d => +d[yFeature]))
+    .nice()
+    .range([height, 0]);
+
+  const color = d3.scaleOrdinal()
+    .domain(["Diabetes", "No Diabetes"])
+    .range(["#27ae60", "#34495e"]);
+
+  chart.append("g")
+    .attr("transform", `translate(0,${height})`)
+    .call(d3.axisBottom(x));
+
+  chart.append("text")
+    .attr("x", width / 2)
+    .attr("y", height + margin.bottom - 5)
+    .style("text-anchor", "middle")
+    .text(xFeature);
+
+  chart.append("g")
+    .call(d3.axisLeft(y));
+
+  chart.append("text")
+    .attr("transform", "rotate(-90)")
+    .attr("x", -height / 2)
+    .attr("y", -margin.left + 15)
+    .style("text-anchor", "middle")
+    .text(yFeature);
+
+  chart.selectAll("circle")
+    .data(combinedData)
+    .join("circle")
+    .attr("cx", d => x(+d[xFeature]))
+    .attr("cy", d => y(+d[yFeature]))
+    .attr("r", 4)
+    .attr("fill", d => color(d.group))
+    .attr("opacity", 0.5);
+
+  const legend = svg.append("g")
+    .attr("transform", `translate(${width + margin.left + 25}, ${margin.top})`);
+
+  ["Diabetes", "No Diabetes"].forEach((group, i) => {
+    legend.append("circle")
+      .attr("cx", 0)
+      .attr("cy", i * 20)
+      .attr("r", 6)
+      .attr("fill", color(group));
+
+    legend.append("text")
+      .attr("x", 12)
+      .attr("y", i * 20 + 5)
+      .text(group);
+  });
+}
+
+
+  </script>
+</body>
+</html>
