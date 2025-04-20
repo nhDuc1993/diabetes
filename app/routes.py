@@ -18,6 +18,10 @@ def heatmap():
 def predict_page():
     return render_template("prediction.html")
 
+@main.route('/factors')
+def factors_page():
+    return render_template("factors.html")
+
 @main.route('/api/kpis')
 def get_kpis():
     df = pd.read_csv(DATA_PATH)
@@ -145,3 +149,42 @@ def predict():
         'label': prediction,
         'probability': round(float(max(proba)) * 100, 4) 
     })
+
+
+@main.route('/factors/bar')
+def binary_charts():
+    df = pd.read_csv(DATA_PATH)
+    rename_dict = {
+        "HighBP": "High Blood Pressure",
+        "HighChol": "High Cholesterol",
+        "CholCheck": "Cholesterol Check",
+        "Smoker": "Smoker",
+        "Stroke": "Stroke",
+        "HeartDiseaseorAttack": "Heart Disease",
+        "PhysActivity": "Physical Activity",
+        "Fruits": "Fruits",
+        "Veggies": "Veggies",
+        "HvyAlcoholConsump": "Heavy Alcohol Consumption",
+        "AnyHealthcare": "Healthcare",
+        "NoDocbcCost": "No Doc Appointment Because of Cost",
+        "DiffWalk": "Walking Difficulty"
+    }
+
+    df.rename(columns=rename_dict, inplace=True)
+
+    binary_features = ['High Blood Pressure', 'High Cholesterol', 'Cholesterol Check', 'Smoker', 'Stroke', 'Heart Disease',
+                       'Physical Activity', 'Fruits', 'Veggies', 'Heavy Alcohol Consumption', 'Healthcare',
+                       'No Doc Appointment Because of Cost', 'Walking Difficulty'] 
+
+    result = {}
+
+    for feature in binary_features:
+        if feature not in df.columns:
+            continue
+        grouped = df.groupby(feature)['Diabetes_binary'].mean() * 100
+        result[feature] = {
+            "Yes": round(grouped.get(1, 0), 2),
+            "No": round(grouped.get(0, 0), 2)
+        }
+
+    return jsonify(result)

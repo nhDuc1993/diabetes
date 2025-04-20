@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Diabetes Resilient Dashboard</title>
+  <script src="{{ url_for('static', filename='lib/d3/d3.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='lib/d3-dsv/d3-dsv.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='lib/d3-fetch/d3-fetch.min.js') }}"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter&display=swap" rel="stylesheet">
+  <style>
+
+body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      display: flex;
+      height: 100vh;
+    }
+
+    .sidebar {
+      background-color: #2c3e50;
+      width: 200px;
+      color: white;
+      padding: 1rem;
+    }
+
+    .sidebar button {
+      display: block;
+      margin: 10px 0;
+      width: 100%;
+      background: #34495e;
+      border: none;
+      color: white;
+      padding: 10px;
+      cursor: pointer;
+    }
+
+    .main {
+      flex: 1;
+      padding: 2rem;
+      background-color: #f5f6fa;
+      overflow-y: auto;
+    }
+
+        .chart-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+            padding: 20px;
+        }
+
+
+        .bar-chart {
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 10px;
+        }
+        svg {
+            width: 100%;
+            height: 200px;
+        }
+  </style>
+
+</head>
+
+<body>
+  <div class="sidebar">
+    <h1 style="font-size:16px;">Diabetes-Resilient Individuals Dashboard</h1>
+
+
+    <button onclick="window.location.href='/'">Summary</button>
+    <button><b>Essential Factors</b></button>
+    <button onclick="window.location.href='/heatmap'">Correlation Heatmap</button>
+    <button onclick="window.location.href='/predict'">Prediction</button>
+  </div>
+  <div class="main" >
+    <h1>Essential Factors</h1>
+    <h5 style="font-weight: normal; font-style: italic;"> This page displays a series of bar charts, each representing a binary health-related feature (e.g., High Blood Pressure, Cholesterol Check, Smoking, etc.). This helps identify which factors are more commonly observed among diabetic individuals.</h5>
+ 
+    <div class="chart-container" id="chart-container"></div>
+
+    
+
+  </div>
+
+  <script>
+        fetch("/factors/bar")
+            .then(response => response.json())
+            .then(data => {
+                const container = d3.select("#chart-container");
+
+                Object.entries(data).forEach(([feature, values]) => {
+                    const chart = container.append("div")
+                        .attr("class", "bar-chart");
+
+                    chart.append("h3").text(feature);
+
+                    const svg = chart.append("svg");
+                    const margin = { top: 10, right: 10, bottom: 30, left: 40 };
+                    const width = 250;
+                    const height = 200;
+
+                    const x = d3.scaleBand()
+                        .domain(["No", "Yes"])
+                        .range([margin.left, width - margin.right])
+                        .padding(0.4);
+
+                    const y = d3.scaleLinear()
+                        .domain([0, 100])
+                        .range([height - margin.bottom, margin.top]);
+
+                    svg.append("g")
+                        .attr("transform", `translate(0,${height - margin.bottom})`)
+                        .call(d3.axisBottom(x));
+
+                    svg.append("g")
+                        .attr("transform", `translate(${margin.left},0)`)
+                        .call(d3.axisLeft(y).ticks(5));
+
+                    svg.selectAll("rect")
+                        .data(["No", "Yes"])
+                        .enter()
+                        .append("rect")
+                        .attr("x", d => x(d))
+                        .attr("y", d => y(values[d]))
+                        .attr("width", x.bandwidth())
+                        .attr("height", d => y(0) - y(values[d]))
+                        .attr("fill", "#34495e");
+
+                    svg.selectAll("text.value")
+                        .data(["No", "Yes"])
+                        .enter()
+                        .append("text")
+                        .attr("class", "value")
+                        .attr("x", d => x(d) + x.bandwidth() / 2)
+                        .attr("y", d => y(values[d]) - 5)
+                        .attr("text-anchor", "middle")
+                        .text(d => values[d] + "%");
+                });
+            });
+
+
+  
+  
+  </script>
+</body>
+</html>
